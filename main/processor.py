@@ -8,7 +8,7 @@ class Processor(object):
         self.points = np.float32([[0,0],[0,0],[0,0],[0,0]])
         self.points_cnt = 0
 
-    def set_boundary(self, img):
+    def set_boundary(self, cam):
         active = False
         def get(event, x, y, flags, param):
             if event == cv2.EVENT_LBUTTONDOWN and active:
@@ -19,7 +19,9 @@ class Processor(object):
         cv2.namedWindow('getBoundary')
         cv2.setMouseCallback('getBoundary', get)
         while True:
-            cv2.imshow('getBoundary', img)
+            ret, img = cam.read()
+            if ret:
+                cv2.imshow('getBoundary', img)
             k = cv2.waitKey(20) & 0xFF
             if k == 32:
                 active = not active
@@ -28,3 +30,5 @@ class Processor(object):
             if self.points_cnt == 4:
                 break
         cv2.destroyWindow('getBoundary')
+        for row in self.points:
+            print(row)

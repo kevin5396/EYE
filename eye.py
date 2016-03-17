@@ -1,4 +1,4 @@
-from main import App
+from main.app import App
 
 app = App()
 
