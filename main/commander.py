@@ -14,3 +14,6 @@ class Commander(object):
             self.conn.write(cmd)
         except:
             print("Unable to send command.")
+
+    def disconnect(self):
+        self.conn.close()

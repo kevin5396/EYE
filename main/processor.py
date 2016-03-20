@@ -32,3 +32,18 @@ class Processor(object):
         cv2.destroyWindow('getBoundary')
         for row in self.points:
             print(row)
+
+    def thresh(self, src):
+        ret, thresh1 = cv2.threshold(src, 50, 255, cv2.THRESH_BINARY_INV)
+        cv2.namedWindow("thresh")
+        while True:
+            cv2.imshow("thresh", thresh1)
+            if cv2.waitKey(20) & 0xFF == 27:
+                break
+        cv2.destroyAllWindows()
+        return thresh1
+
+if __name__ == '__main__':
+    img = cv2.imread('../test.png')
+    p = Processor()
+    p.thresh(img)

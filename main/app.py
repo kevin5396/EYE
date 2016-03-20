@@ -6,13 +6,13 @@ from processor import Processor
 class App(object):
 
     def __init__(self, port='/dev/cu.HC-05-DevB', baud=9600, cam=0):
-        #self.commander = Commander(port, baud)
-        #print 'Commander initialized.'
+        self.commander = Commander(port, baud)
+        print 'Commander initialized.'
 
-        self.camera    = cv2.VideoCapture(cam)
-        print 'Camera initialized'
+        #self.camera    = cv2.VideoCapture(cam)
+        #print 'Camera initialized'
 
-        self.processer = Processor()
+        #self.processer = Processor()
 
     def adjust_Cam(self):
         print 'Adjust camera position. Enter q to continue.'
@@ -34,11 +34,16 @@ class App(object):
         pass
 
     def run(self):
-        self.configure()
+        #self.configure()
+        img = cv2.imread('test.png')
         while True:
-            self.update()
+            cv2.imshow('testcar', img)
+            k = cv2.waitKey(20) & 0xFF
 
-            if cv2.waitKey(20) & 0xFF == ord('q'):
+            if k == ord('q'):
                 break
+            self.commander.send_cmd(chr(k))
+        cv2.destroyAllWindows()
         print 'END.'
+        self.commander.disconnect()
 
