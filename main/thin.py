@@ -55,9 +55,14 @@ if __name__ == "__main__":
 	src = cv2.imread("../test.png")
 	if src == None:
 		sys.exit()
-	bw = cv2.cvtColor(src, cv2.cv.CV_BGR2GRAY)
+	bw = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
 	_, bw2 = cv2.threshold(bw, 50, 255, cv2.THRESH_BINARY_INV)
 	bw2 = thinning(bw2)
 
-	cv2.imshow("thinning", bw2)
+	cv2.imshow("src", bw)
+	cv2.imshow("thin", bw2)
 	cv2.waitKey()
+	cv2.destroyAllWindows()
+
+
+
