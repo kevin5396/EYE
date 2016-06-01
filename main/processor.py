@@ -5,10 +5,10 @@ import math
 from utils import *
 import time
 USE_FILE = False
-# USE_FILE = True
+USE_FILE = True
 
 USE_CAR = False
-USE_CAR = True
+# USE_CAR = True
 
 MAXX = 400
 MAXY = 200
@@ -267,8 +267,8 @@ class Processor(object):
     def setup(self):
         pass
 
-    def set_car(self, img):
-        frame = img.copy()
+    def set_car(self, camera):
+
         if USE_CAR:
             ff = open("car.txt", 'r')
             for j in range(2):
@@ -285,6 +285,8 @@ class Processor(object):
             cv2.createTrackbar('vmax', 'frame', 0, 255, nothing)
             cnt = 0
             while cnt < 2:
+                ret, frame = camera.read()
+                frame = self.perspectiveTransform(frame)
 
                 self.hsv[cnt][0] = cv2.getTrackbarPos('hmin', 'frame')
                 self.hsv[cnt][1] = cv2.getTrackbarPos('hmax', 'frame')
@@ -304,6 +306,8 @@ class Processor(object):
 
                 # Threshold the HSV image to get only blue colors
                 mask = cv2.inRange(hsv, lower_blue, upper_blue)
+                mask = cv2.erode(mask, None, iterations=2)
+                mask = cv2.dilate(mask, None, iterations=2)
 
                 cv2.imshow('frame', mask)
                 cv2.imshow('origin', hsv)
@@ -329,17 +333,18 @@ class Processor(object):
         print self.hsv
 
     def work(self, camera, cmd):
-        (ret, frame) = camera.read()
-        self.set_car(self.perspectiveTransform(frame))
+        self.set_car(camera)
         currentCorner = 1
         while True:
+            cmd.send_cmd('x')
             (grabbed, frame) = camera.read()
+
 
             if not grabbed:
                 break
             frame = self.perspectiveTransform(frame)
             blurred = cv2.GaussianBlur(frame, (11,11), 0)
-            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
             # find head
             head_mask = cv2.inRange(hsv, self.lower_head, self.upper_head)
@@ -383,41 +388,51 @@ class Processor(object):
             if head_center is not None and tail_center is not None:
 
                 center = centerPt(head_center, tail_center)
+                try:
+                    dir = unitVec(tail_center, head_center)
 
-                dir = unitVec(tail_center, head_center)
+                    ndir = unitVec(center, self.corners[currentCorner])
 
-                ndir = unitVec(center, self.corners[currentCorner])
+                    distance = dist(center, self.corners[currentCorner])
+                    bias = cross(dir, ndir)
+                except ZeroDivisionError, e:
+                    pass
+                else:
+                    print "center: ", center
+                    print "dir: ", dir
+                    print "ndir: ", ndir
+                    print "bias: ", bias
+                    print "dist: ", distance
+                    print '=' * 80, '\n'
+                    if distance < 30:
+                        currentCorner += 1
+                        print '*' * 10, ' %d ' % currentCorner, '*' * 10
+                        if currentCorner == len(self.corners):
+                            break
+                    elif abs(bias) < 0.1:
+                        if distance >= 30:
+                            cmd.send_cmd('w')
+                        else:
+                            currentCorner += 1
+                            print '*' * 10, ' %d ' % currentCorner, '*' * 10
+                            if currentCorner == len(self.corners):
+                                break
+                    elif bias < 0:
+                        cmd.send_cmd('a')
+                    elif bias > 0:
+                        cmd.send_cmd('d')
 
-                distance = dist(center, self.corners[currentCorner])
-                bias = cross(dir, ndir)
-
-                print "center: ", center
-                print "dir: ", dir
-                print "ndir: ", ndir
-                print "bias: ", bias
-                print "dist: ", distance
-                print '=' * 80, '\n'
-
-                if abs(bias) < 0.5:
-                    cmd.send_cmd('w')
-                elif bias < 0:
-                    cmd.send_cmd('a')
-                elif bias > 0:
-                    cmd.send_cmd('d')
-                if distance < 40:
-                    currentCorner += 1
-                    print '*' * 10, ' %d ' % currentCorner, '*' * 10
-                    if currentCorner == len(self.corners):
-                        break
+            else:
+                cmd.send_cmd('x')
 
             cv2.imshow("mask", head_mask)
+            cv2.imshow("mask1", tail_mask)
             cv2.imshow("frame", frame)
-            time.sleep(1.5)
             key = cv2.waitKey(1) & 0xff
             if key == ord("q"):
                 break
 
-
+        cmd.send_cmd('x')
         cv2.destroyAllWindows()
 
 
