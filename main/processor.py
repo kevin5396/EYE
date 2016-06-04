@@ -8,8 +8,9 @@ USE_FILE = False
 USE_FILE = True
 
 USE_CAR = False
-# USE_CAR = True
-
+USE_CAR = True
+#
+DELAY_TYPE = 0
 MAXX = 400
 MAXY = 200
 delta = [(-1,-1),(-1,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1)]
@@ -386,7 +387,8 @@ class Processor(object):
             cc = self.corners[currentCorner]
             cv2.circle(frame, (cc[0], cc[1]), 5, (255,255,0), -1)
             if head_center is not None and tail_center is not None:
-
+                DELAY_TYPE = 0
+                head_center, tail_center = trim(head_center, tail_center)
                 center = centerPt(head_center, tail_center)
                 try:
                     dir = unitVec(tail_center, head_center)
@@ -404,22 +406,27 @@ class Processor(object):
                     print "bias: ", bias
                     print "dist: ", distance
                     print '=' * 80, '\n'
-                    if distance < 30:
+                    if distance < 15:
                         currentCorner += 1
+                        DELAY_TYPE = -1
                         print '*' * 10, ' %d ' % currentCorner, '*' * 10
                         if currentCorner == len(self.corners):
                             break
-                    elif abs(bias) < 0.1:
-                        if distance >= 30:
+                    elif bias > -0.2 and bias < 0.1:
+                        if distance >= 15:
+                            print 'w'
                             cmd.send_cmd('w')
+                            DELAY_TYPE = 1
                         else:
                             currentCorner += 1
                             print '*' * 10, ' %d ' % currentCorner, '*' * 10
                             if currentCorner == len(self.corners):
                                 break
                     elif bias < 0:
+                        print 'a'
                         cmd.send_cmd('a')
                     elif bias > 0:
+                        print 'd'
                         cmd.send_cmd('d')
 
             else:
@@ -428,6 +435,10 @@ class Processor(object):
             cv2.imshow("mask", head_mask)
             cv2.imshow("mask1", tail_mask)
             cv2.imshow("frame", frame)
+            if DELAY_TYPE == 0:
+                time.sleep(0.4)
+            elif DELAY_TYPE == 1:
+                time.sleep(0.6)
             key = cv2.waitKey(1) & 0xff
             if key == ord("q"):
                 break
