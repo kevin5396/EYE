@@ -188,7 +188,6 @@ class Processor(object):
             k = cv2.waitKey(20) & 0xFF
 
             if k == ord('q'):
-                # cv2.imwrite('photo.png', warp)
                 break
 
         cv2.destroyAllWindows()
