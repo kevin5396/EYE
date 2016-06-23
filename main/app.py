@@ -46,18 +46,13 @@ class App(object):
             cv2.namedWindow('thresh')
             cv2.namedWindow('thin')
             cv2.namedWindow('corner')
-            cv2.namedWindow('line')
-
-            # cv2.createTrackbar('cnt', 'corner', 1,60, nothing)
 
             cv2.createTrackbar('th', 'thresh', 120,255, nothing)
 
             ret, frame = self.camera.read()
             while True:
-                # ret, frame = self.camera.read()
 
                 th = cv2.getTrackbarPos('th', 'thresh')
-                # points = cv2.getTrackbarPos('cnt', 'corner')
 
                 # perspective tranform
                 warp = self.processer.perspectiveTransform(frame)
@@ -77,21 +72,16 @@ class App(object):
                 corner = self.processer.corner(thinned, 25, thresh)
                 cv2.imshow('corner', corner)
 
-                # line = self.processer.find_lines(thinned, thresh)
-                # cv2.imshow('line', line)
 
                 k = cv2.waitKey(20) & 0xFF
 
 
                 if k == ord('q'):
-                    # cv2.imwrite('photo.png', warp)
                     break
-                #self.commander.send_cmd(chr(k))
+
             cv2.destroyAllWindows()
             self.processer.process_corners()
             self.processer.work(self.camera, self.commander)
-            # self.processer.main(self.camera, self.commander)
-
             self.camera.release()
             print('END.')
         except Exception, e:
@@ -99,11 +89,4 @@ class App(object):
         finally:
             self.commander.disconnect()
 
-    def setup_car(self):
-        ret, frame = self.camera.read()
-        warp = self.processer.perspectiveTransform(frame)
-        warp = cv2.GaussianBlur(warp, (5, 5), 0)
-        self.processer.set_car(warp)
-
-        self.processer.getCarPosition(warp)
 

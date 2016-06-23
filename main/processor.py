@@ -8,18 +8,13 @@ USE_FILE = False
 USE_FILE = True
 
 USE_CAR = False
-USE_CAR = True
+# USE_CAR = True
 #
 DELAY_TYPE = 0
 MAXX = 400
 MAXY = 200
 delta = [(-1,-1),(-1,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1)]
 
-frame = None
-done = False
-roiPts_head = []
-roiPts_tail = []
-inputMode = None
 
 def valid(x, y):
     return 0 <= x < MAXX and 0 <= y < MAXY
@@ -27,30 +22,6 @@ def valid(x, y):
 def nothing(x):
     pass
 
-    frame = None
-    roiPts_head = []
-    roiPts_tail = []
-    done = False
-    inputMode = False
-
-def selectROI(event, x, y, flags, param):
-    # grab the reference to the current frame, list of ROI
-    # points and whether or not it is ROI selection mode
-    global frame, roiPts_head, done, roiPts_tail, inputMode
-
-    # if we are in ROI selection mode, the mouse was clicked,
-    # and we do not already have four points, then update the
-    # list of ROI points with the (x, y) location of the click
-    # and draw the circle
-    if inputMode and event == cv2.EVENT_LBUTTONDOWN and (len(roiPts_head) < 4 or len(roiPts_tail) < 4):
-        if len(roiPts_head) < 4:
-            roiPts_head.append((x, y))
-        else:
-            roiPts_tail.append((x, y))
-            if len(roiPts_tail) == 4:
-                done = True
-        cv2.circle(frame, (x, y), 2, (0, 255, 0), 2)
-        cv2.imshow("frame", frame)
 
 
 def filter_points(corners, thresh):
@@ -235,38 +206,6 @@ class Processor(object):
         # bw = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
         return thinning(src)
 
-    def find_lines(self, src, toshow):
-        show = toshow.copy()
-        ret, img = cv2.threshold(src, 20, 255, cv2.THRESH_BINARY_INV)
-
-        dst = cv2.Canny(img, 50, 200)
-        cv2.imshow('canny', dst)
-        lines = cv2.HoughLines(dst, 1, math.pi/180.0, 60)
-
-        if lines is not None:
-            a,b,c = lines.shape
-            for i in range(a):
-                rho = lines[i][0][0]
-                theta = lines[i][0][1]
-                a = math.cos(theta)
-                b = math.sin(theta)
-                x0,y0 = a*rho, b*rho
-                pt1 = (int(x0 + 1000 * (-b)), int(y0 + 1000 * (a)))
-                pt2 = (int(x0 - 1000 * (-b)), int(y0 - 1000 * (a)))
-                cv2.line(show, pt1, pt2, (0, 0, 255), 2, cv2.LINE_AA)
-        #
-        # gray = src.copy()
-        # edges = cv2.Canny(gray, th1, th2, apertureSize=5)
-        # cv2.imshow("edge", edges)
-        #
-        # lines = cv2.HoughLinesP(edges, rho=1, theta=np.pi / 180, threshold=1, minLineLength=minLL, maxLineGap=maxLG)
-        # if lines is not None:
-        #     for x1, y1, x2, y2 in lines[0]:
-        #         cv2.line(show, (x1, y1), (x2, y2), (0, 0, 255), 3, 8)
-        return show
-
-    def setup(self):
-        pass
 
     def set_car(self, camera):
 
@@ -337,6 +276,7 @@ class Processor(object):
         self.set_car(camera)
         currentCorner = 1
         while True:
+            DELAY_TYPE = 0
             cmd.send_cmd('x')
             (grabbed, frame) = camera.read()
 
@@ -445,215 +385,3 @@ class Processor(object):
 
         cmd.send_cmd('x')
         cv2.destroyAllWindows()
-
-
-
-
-
-    def main(self, camera, cmd):
-        # grab the reference to the current frame, list of ROI
-        # points and whether or not it is ROI selection mode
-        global frame, done, roiPts_head, roiPts_tail, inputMode
-
-        # setup the mouse callback
-        cv2.namedWindow("frame")
-        cv2.setMouseCallback("frame", selectROI)
-
-        # initialize the termination criteria for cam shift, indicating
-        # a maximum of ten iterations or movement by a least one pixel
-        # along with the bounding box of the ROI
-        termination = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1)
-        roiBox_head = None
-        roiBox_tail = None
-
-
-        head = None
-        tail = None
-        center = None
-        dir = None
-
-        currentCorner = 1
-        # keep looping over the frames
-        while True:
-            # grab the current frame
-            (grabbed, frame) = camera.read()
-            frame = self.perspectiveTransform(frame)
-            # check to see if we have reached the end of the
-            # video
-            if not grabbed:
-                break
-
-            # if the see if the ROI has been computed
-            if roiBox_head is not None:
-                # convert the current frame to the HSV color space
-                # and perform mean shift
-                hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-                backProj = cv2.calcBackProject([hsv], [0], roiHist_head, [0, 180], 1)
-
-                # apply cam shift to the back projection, convert the
-                # points to a bounding box, and then draw them
-                (r, roiBox_head) = cv2.CamShift(backProj, roiBox_head, termination)
-                pts = np.int0(cv2.boxPoints(r))
-                cv2.polylines(frame, [pts], True, (0, 255, 0), 2)
-                cx = (pts[0][0] + pts[2][0]) / 2
-                cy = (pts[0][1] + pts[2][1]) / 2
-                cv2.circle(frame, (cx, cy), 4, (0, 255, 0), 2)
-
-                head = (cx, cy)
-
-            if roiBox_tail is not None:
-                hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-                backProj = cv2.calcBackProject([hsv], [0], roiHist_tail, [0, 180], 1)
-
-                # apply cam shift to the back projection, convert the
-                # points to a bounding box, and then draw them
-                (r, roiBox_tail) = cv2.CamShift(backProj, roiBox_tail, termination)
-                pts = np.int0(cv2.boxPoints(r))
-                cv2.polylines(frame, [pts], True, (0, 255, 0), 2)
-                cx = (pts[0][0] + pts[2][0]) / 2
-                cy = (pts[0][1] + pts[2][1]) / 2
-                cv2.circle(frame, (cx, cy), 4, (0, 255, 0), 2)
-
-                tail = (cx, cy)
-
-            # show the frame and record if the user presses a key
-            cv2.imshow("frame", frame)
-            key = cv2.waitKey(1) & 0xFF
-
-            if roiBox_tail is not None and roiBox_head is not None:
-
-                center = centerPt(head, tail)
-
-                dir = unitVec(tail, head)
-
-
-                ndir = unitVec(center, self.corners[currentCorner].ravel())
-
-                distance = dist(center, self.corners[currentCorner].ravel())
-                bias = cross(dir, ndir)
-
-                print "center: ", center
-                print "dir: ", dir
-                print "ndir: ", ndir
-                print "bias: ", bias
-                print "dist: ", distance
-                print '='*80, '\n'
-
-                if abs(bias) < 0.7:
-                    cmd.send_cmd('w')
-                elif bias < 0:
-                    cmd.send_cmd('a')
-                elif bias > 0:
-                    cmd.send_cmd('d')
-                if distance < 20:
-                    currentCorner += 1
-                    if currentCorner == len(self.corners):
-                        break
-                time.sleep(1)
-
-
-            # handle if the 'i' key is pressed, then go into ROI
-            # selection mode
-            if key == ord("i") and (len(roiPts_head) < 4 or len(roiPts_tail) < 4):
-                # indicate that we are in input mode and clone the
-                # frame
-                inputMode = True
-                orig = frame.copy()
-
-                # keep looping until 4 reference ROI points have
-                # been selected; press any key to exit ROI selction
-                # mode once 4 points have been selected
-                while not done:
-                    cv2.imshow("frame", frame)
-                    cv2.waitKey(0)
-
-                # determine the top-left and bottom-right points
-                roiPts_head = np.array(roiPts_head)
-                roiPts_tail = np.array(roiPts_tail)
-
-
-
-
-                s = roiPts_head.sum(axis = 1)
-                tl = roiPts_head[np.argmin(s)]
-                br = roiPts_head[np.argmax(s)]
-
-                # grab the ROI for the bounding box and convert it
-                # to the HSV color space
-                roi_head = orig[tl[1]:br[1], tl[0]:br[0]]
-                roi_head = cv2.cvtColor(roi_head, cv2.COLOR_BGR2HSV)
-                #roi = cv2.cvtColor(roi, cv2.COLOR_BGR2LAB)
-                # mask = cv2.inRange(roi_head, np.array((72., 29., 97.)), np.array((162., 140., 184.)))
-                # compute a HSV histogram for the ROI and store the
-                # bounding box
-                roiHist_head = cv2.calcHist([roi_head], [0], None, [180], [0, 180])
-                roiHist_head = cv2.normalize(roiHist_head, roiHist_head, 0, 255, cv2.NORM_MINMAX)
-                roiBox_head = (tl[0], tl[1], br[0], br[1])
-
-                s = roiPts_tail.sum(axis=1)
-                tl = roiPts_tail[np.argmin(s)]
-                br = roiPts_tail[np.argmax(s)]
-
-                # grab the ROI for the bounding box and convert it
-                # to the HSV color space
-                roi_tail = orig[tl[1]:br[1], tl[0]:br[0]]
-                roi_tail = cv2.cvtColor(roi_tail, cv2.COLOR_BGR2HSV)
-                # roi = cv2.cvtColor(roi, cv2.COLOR_BGR2LAB)
-
-                # mask = cv2.inRange(roi_tail, np.array((0., 141., 192.)), np.array((67., 202., 255.)))
-                # compute a HSV histogram for the ROI and store the
-                # bounding box
-                roiHist_tail = cv2.calcHist([roi_tail], [0], None, [16], [0, 180])
-                roiHist_tail = cv2.normalize(roiHist_tail, roiHist_tail, 0, 255, cv2.NORM_MINMAX)
-                roiBox_tail = (tl[0], tl[1], br[0], br[1])
-
-            # if the 'q' key is pressed, stop the loop
-            elif key == ord("q"):
-                cmd.write('xx')
-                break
-
-        # cleanup the camera and close any open windows
-        camera.release()
-        cv2.destroyAllWindows()
-
-
-
-
-
-
-# if __name__ == '__main__':
-#
-#     p = Processor()
-#     cv2.namedWindow('line')
-#
-#     # cv2.createTrackbar('cnt', 'corner', 1,25, nothing)
-#
-#     cv2.createTrackbar('minLL', 'line', 0, 100, nothing)
-#     cv2.createTrackbar('maxLG', 'line', 0, 100, nothing)
-#
-#
-#     test = cv2.imread('../test.png')
-#
-#     # thinned = p.thin(test)
-#
-#     bw = cv2.cvtColor(test, cv2.COLOR_BGR2GRAY)
-#     _, bw2 = cv2.threshold(bw, 50, 255, cv2.THRESH_BINARY_INV)
-#     thinned = thinning(bw2)
-#     while True:
-#         minLL = cv2.getTrackbarPos('minLL', 'line')
-#         maxLG = cv2.getTrackbarPos('maxLG', 'line')
-#         th1 = cv2.getTrackbarPos('th1', 'line')
-#         th2 = cv2.getTrackbarPos('th2', 'line')
-#
-#         line = p.find_lines(thinned, thinned, minLL, maxLG, th1, th2)
-#         cv2.imshow('line', line)
-#         cv2.imshow('thin', thinned)
-#
-#         k = cv2.waitKey(20) & 0xFF
-#
-#         if k == ord('q'):
-#             print minLL, maxLG
-#             break
-#             # self.commander.send_cmd(chr(k))
-#     cv2.destroyAllWindows()
-    
