@@ -1,4 +1,4 @@
-#EYE
+# EYE
 This is a basic python program used to autonomously drive a Bluetooth Car built with Arduino, based on opencv, a
 computer vision library.
 
